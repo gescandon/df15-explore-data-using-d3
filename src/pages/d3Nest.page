@@ -1,40 +1,38 @@
 <apex:page sidebar="false" showHeader="false">
 <script type="text/javascript">
     var __sfdcSessionId = '{!GETSESSIONID()}';
-  </script>  
-<script>
-function log(msg) {
-    console.log(msg);
+    function log(msg) {
+      console.log(msg);
     }    
 </script>
 <style>
-path {
-      stroke: #fff;
-  stroke-width: 1.5;
-  cursor: pointer;
+.chart {
+  display: block;
+  margin: auto;
+  margin-top: 60px;
+  font-size: 11px;
 }
 
-.node {
+rect {
+  stroke: #eee;
+  fill: #aaa;
+  fill-opacity: .8;
+}
+
+rect.parent {
   cursor: pointer;
+  fill: steelblue;
 }
-.node circle { 
-    fill: #fff; 
-    stroke: steelblue; 
-    stroke-width: 3px;
-}
-.node text { 
-    font: 12px sans-serif; }
-.link {
-    fill: none; 
-    stroke: #ccc; 
-    stroke-width: 2px;
+
+text {
+  pointer-events: none;
 }
 
 </style>
 
 <body>
 
-     <div id="output">hello d3</div>
+     <div id="d3output">hello d3</div>
 
 </body>
 
@@ -43,201 +41,131 @@ path {
 <apex:includeScript value="{!$Resource.d3}"/>
 
 <script>
-result = sforce.connection.query("Select Name, Id, Country__c, Region__c, Amount from Opportunity");
-data = result.getArray("records");
-
-log(data.length);
-
-for (i = 0; i < data.length; i++) {
-    var parent = data[i];
-    parent.size = parent.Amount;
-}
-
-var nestData_1 = d3.nest()
-.key(function(d) { return d.Country__c; })
-.rollup(function(leaves) { return {
-	"level":1,
-	"child_count": leaves.length, 
-	"size": d3.sum(leaves, function(d) {
-		return parseFloat(d.Amount);}),
-	"children": leaves}
-	 })
-.entries(data);
-
-var nestData_2 = d3.nest()
-.key(function(d) { return d.Region__c; })
-.rollup(function(leaves) { return {
-	"level":2,
-	"child_count": leaves.length, 
-	"size": d3.sum(leaves, function(d) {
-		return parseFloat(d.Amount);}),
-	"children": leaves}
-	 })
-.entries(data);
-
-
-//$("#output").html("<pre>" + JSON.stringify(nestData,null," ") + "</pre>");
-
-// convert nest to treemap
-var treeData_1 = {
-		Name:"Opps",
-		children: nestData_1.map(function(nest) {
-			   var rObj = {};
-			   rObj.Name = nest.key;
-			   rObj.size = nest.values.size ? nest.values.size : 0;
-			   rObj.children = nest.values.children ? nest.values.children : nest.values;
-			   rObj.child_count = nest.values.children ? nest.values.children.length : 0;
-			   return rObj;
-					})
-	};
-
-var treeData_2 = {
-		Name:"Opps",
-		children: nestData_2.map(function(nest) {
-			   var rObj = {};
-			   rObj.Name = nest.key;
-			   rObj.size = nest.values.size ? nest.values.size : 0;
-			   rObj.children = nest.values.children ? nest.values.children : nest.values;
-			   rObj.child_count = nest.values.children ? nest.values.children.length : 0;
-			   return rObj;
-					})
-	};
-
-
-$("#output").html("<pre>" + JSON.stringify(treeData_1,null," ") + "</pre>");
 
 // Build image window
 
-var width = 960,
-    height = 700,
-    radius = Math.min(width, height) / 2;
+var w = 1120,
+    h = 600,
+    x = d3.scale.linear().range([0, w]),
+    y = d3.scale.linear().range([0, h]);
 
-var padding = 5,
-    duration = 1000;
-
-var x = d3.scale.linear()
-    .range([0, 2 * Math.PI]);
-
-var y = d3.scale.sqrt()
-    .range([0, radius]);
-
-var color = d3.scale.category20c();
-function brightness(rgb) {
-  return rgb.r * .299 + rgb.g * .587 + rgb.b * .114;
-}
-
-var svg = d3.select("body").append("svg")
-    .attr("width", width)
-    .attr("height", height)
-  .append("g")
-    .attr("transform", "translate(" + width / 2 + "," + (height / 2 + 10) + ")");
+var vis = d3.select("#d3output").append("div")
+    .attr("class", "chart")
+    .style("width", w + "px")
+    .style("height", h + "px")
+  .append("svg:svg")
+    .attr("width", w)
+    .attr("height", h);
 
 var partition = d3.layout.partition()
     .value(function(d) { return d.size; });
 
-var arc = d3.svg.arc()
-    .startAngle(function(d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x))); })
-    .endAngle(function(d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x + d.dx))); })
-    .innerRadius(function(d) { return Math.max(0, y(d.y)); })
-    .outerRadius(function(d) { return Math.max(0, y(d.y + d.dy)); });
+function renderPartition(root) {
+  log("partition");
 
-//d3.json("/mbostock/raw/4063550/flare.json", function(error, root) {
-// if (error) throw error;
-
-function flare(root) {
-  var nodes = partition.nodes(root);
-  var path = svg.selectAll("path")
-      .data(nodes)
-    .enter().append("path")
-      .attr("d", arc)
-      .attr("fill-rule","evenodd")
-      .style("fill", function(d) { return color((d.children ? d : d.parent).Name); })
+  var g = vis.selectAll("g")
+      .data(partition.nodes(root))
+    .enter().append("svg:g")
+      .attr("transform", function(d) { return "translate(" + x(d.y) + "," + y(d.x) + ")"; })
       .on("click", click);
 
-  var text = svg.selectAll("text").data(nodes);
-  var textEnter = text.enter().append("text")
-      .style("fill-opacity", 1)
-      .style("fill", function(d) {
-        return brightness(d3.rgb(color(d))) < 100 ? "#eee" : "#000";
-      })
-      .attr("text-anchor", function(d) {
-        return x(d.x + d.dx / 2) > Math.PI ? "end" : "start";
-      })
-      .attr("dy", ".2em")
-      .attr("transform", function(d) {
-        var multiline = (d.Name || "").split(" ").length > 1,
-            angle = x(d.x + d.dx / 2) * 180 / Math.PI - 90,
-            rotate = angle + (multiline ? -.5 : 0);
-        return "rotate(" + rotate + ")translate(" + (y(d.y) + padding) + ")rotate(" + (angle > 90 ? -180 : 0) + ")";
-      })
-      .on("click", click);
+  var kx = w / root.dx,
+      ky = h / 1;
 
-textEnter.append("tspan")
-      .attr("x", 0)
-      .text(function(d) { return d.depth ? d.Name.split(" ")[0] : ""; });
-  textEnter.append("tspan")
-      .attr("x", 0)
-      .attr("dy", "1em")
-      .text(function(d) { return d.depth ? d.Name.split(" ")[1] || "" : ""; });
+  g.append("svg:rect")
+      .attr("width", root.dy * kx)
+      .attr("height", function(d) { return d.dx * ky; })
+      .attr("class", function(d) { return d.children ? "parent" : "child"; });
+
+  g.append("svg:text")
+      .attr("transform", transform)
+      .attr("dy", ".35em")
+      .style("opacity", function(d) { return d.dx * ky > 12 ? 1 : 0; })
+      .text(function(d) { return d.Name; })
+
+  d3.select(window)
+      .on("click", function() { click(root); })
 
   function click(d) {
-  	log("onclik: " + d.level);
-    path.transition()
-      .duration(duration)
-      .attrTween("d", arcTween(d));
+    if (!d.children) return;
 
-    // Somewhat of a hack as we rely on arcTween updating the scales.
-    text.style("visibility", function(e) {
-          return isParentOf(d, e) ? null : d3.select(this).style("visibility");
-        })
-      .transition()
-        .duration(duration)
-        .attrTween("text-anchor", function(d) {
-          return function() {
-            return x(d.x + d.dx / 2) > Math.PI ? "end" : "start";
-          };
-        })
-        .attrTween("transform", function(d) {
-          var multiline = (d.Name || "").split(" ").length > 1;
-          return function() {
-            var angle = x(d.x + d.dx / 2) * 180 / Math.PI - 90,
-                rotate = angle + (multiline ? -.5 : 0);
-            return "rotate(" + rotate + ")translate(" + (y(d.y) + padding) + ")rotate(" + (angle > 90 ? -180 : 0) + ")";
-          };
-        })
-        .style("fill-opacity", function(e) { return isParentOf(d, e) ? 1 : 1e-6; })
-        .each("end", function(e) {
-          d3.select(this).style("visibility", isParentOf(d, e) ? null : "hidden");
-        });      
+    kx = (d.y ? w - 40 : w) / (1 - d.y);
+    ky = h / d.dx;
+    x.domain([d.y, 1]).range([d.y ? 40 : 0, w]);
+    y.domain([d.x, d.x + d.dx]);
+
+    var t = g.transition()
+        .duration(d3.event.altKey ? 7500 : 750)
+        .attr("transform", function(d) { return "translate(" + x(d.y) + "," + y(d.x) + ")"; });
+
+    t.select("rect")
+        .attr("width", d.dy * kx)
+        .attr("height", function(d) { return d.dx * ky; });
+
+    t.select("text")
+        .attr("transform", transform)
+        .style("opacity", function(d) { return d.dx * ky > 12 ? 1 : 0; });
+
+    d3.event.stopPropagation();
+  }
+
+  function transform(d) {
+    return "translate(8," + d.dx * ky / 2 + ")";
   }
 };
 
+result = sforce.connection.query("Select Name, Id, Country__c, Region__c, Amount from Opportunity");
+data = result.getArray("records");
 
-function isParentOf(p, c) {
-  if (p === c) return true;
-  if (p.children) {
-    return p.children.some(function(d) {
-      return isParentOf(d, c);
-    });
-  }
-  return false;
+
+var treeData =  
+    {Name:"Galaxy Opps",
+    children: []}
+    ;
+
+for (i = 0; i < data.length; i++) {
+    var child = data[i];
+    child.size = child.Amount;
+    
+    var newCountry = {Name: child.Country__c, size: Number(child.size), children: []};
+    var newRegion = {Name: child.Region__c, size: Number(child.size), children: []};
+    newRegion.children.push(child);
+    newCountry.children.push(newRegion);
+
+    //find existing country
+    var countryExists;
+    for (j = 0; j < treeData.children.length; j++) {
+        if (treeData.children[j].Name === child.Country__c) {
+          countryExists = treeData.children[j];
+        }
+    }
+
+    if (countryExists) {
+      // find existing Region
+      var regionExists;
+      for (k = 0; k < countryExists.children.length; k++) {
+          if (countryExists.children[k].Name === child.Region__c) {
+            regionExists = countryExists.children[k];
+          }
+      }
+
+      if (regionExists) {
+        regionExists.children.push(child);
+        regionExists.size = Number(regionExists.size) + Number(child.size);
+        countryExists.size = countryExists.size + Number(child.size);
+      } else {
+        countryExists.children.push(newRegion);
+        countryExists.size = countryExists.size + Number(child.size);
+      }
+    } else {
+      treeData.children.push(newCountry);
+    }
 }
 
-d3.select(self.frameElement).style("height", height + "px");
 
-// Interpolate the scales!
-function arcTween(d) {
-  var xd = d3.interpolate(x.domain(), [d.x, d.x + d.dx]),
-      yd = d3.interpolate(y.domain(), [d.y, 1]),
-      yr = d3.interpolate(y.range(), [d.y ? 20 : 0, radius]);
-  return function(d, i) {
-    return i
-        ? function(t) { return arc(d); }
-        : function(t) { x.domain(xd(t)); y.domain(yd(t)).range(yr(t)); return arc(d); };
-  };
-}
-
-flare(treeData_1);
+//$("#d3output").html("<pre>" + JSON.stringify(treeData,null," ") + "</pre>");
+log(treeData);
+renderPartition(treeData);
 
 
 
