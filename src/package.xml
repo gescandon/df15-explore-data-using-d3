@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+	<types>
+		<members>d3AccountHierarchy</members>
+		<members>d3AccountSunburst</members>
+		<members>d3Nest</members>
+		<members>d3explorer</members>
+		<members>d3explorer2</members>
+		<name>ApexPage</name>
+	</types>
+	<version>28.0</version>
+</Package>

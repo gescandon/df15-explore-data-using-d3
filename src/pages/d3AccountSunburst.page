@@ -1,0 +1,224 @@
+<apex:page sidebar="false" showHeader="false">
+<script type="text/javascript">
+    var __sfdcSessionId = '{!GETSESSIONID()}';
+
+	function log(msg) {
+    	console.log(msg);
+    }    
+</script>
+<style>
+path {
+      stroke: #fff;
+  stroke-width: 1.5;
+  cursor: pointer;
+}
+
+.node {
+  cursor: pointer;
+}
+.node circle { 
+    fill: #fff; 
+    stroke: steelblue; 
+    stroke-width: 3px;
+}
+.node text { 
+    font: 12px sans-serif; }
+.link {
+    fill: none; 
+    stroke: #ccc; 
+    stroke-width: 2px;
+}
+
+</style>
+
+<body>
+
+     <div id="d3output">hello d3</div>
+
+</body>
+
+<script src="../../soap/ajax/34.0/connection.js" type="text/javascript"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<apex:includeScript value="{!$Resource.d3}"/>
+
+<script>
+
+
+// Build image window
+
+var width = 960,
+    height = 700,
+    radius = Math.min(width, height) / 2;
+
+var padding = 5,
+    duration = 1000;
+
+var x = d3.scale.linear()
+    .range([0, 2 * Math.PI]);
+
+var y = d3.scale.sqrt()
+    .range([0, radius]);
+
+//var color = d3.scale.category20c();
+
+var color = function color(d) {
+  if (d.size == null) {
+    return '#ffffff';
+  } else if (d.size > 1.0e9) {
+    return '#00FF00';   
+  } else  {
+    return '#CCFF99';   
+  }
+};
+
+function brightness(rgb) {
+  return rgb.r * .299 + rgb.g * .587 + rgb.b * .114;
+}
+
+var svg = d3.select("#d3output").append("svg")
+    .attr("width", width)
+    .attr("height", height)
+  .append("g")
+    .attr("transform", "translate(" + width / 2 + "," + (height / 2 + 10) + ")");
+
+var partition = d3.layout.partition()
+    .value(function(d) { return d.size; });
+
+var arc = d3.svg.arc()
+    .startAngle(function(d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x))); })
+    .endAngle(function(d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x + d.dx))); })
+    .innerRadius(function(d) { return Math.max(0, y(d.y)); })
+    .outerRadius(function(d) { return Math.max(0, y(d.y + d.dy)); });
+
+//d3.json("/mbostock/raw/4063550/flare.json", function(error, root) {
+// if (error) throw error;
+
+function flare(root) {
+  var nodes = partition.nodes(root);
+  var path = svg.selectAll("path")
+      .data(nodes)
+    .enter().append("path")
+      .attr("d", arc)
+      .attr("fill-rule","evenodd")
+      .style("fill", function(d) {  return color(d); })
+      .on("click", click);
+
+  var text = svg.selectAll("text").data(nodes);
+  var textEnter = text.enter().append("text")
+      .style("fill-opacity", 1)
+      .style("fill", function(d) {
+        return brightness(d3.rgb(color(d))) < 100 ? "#eee" : "#000";
+      })
+      .attr("text-anchor", function(d) {
+        return x(d.x + d.dx / 2) > Math.PI ? "end" : "start";
+      })
+      .attr("dy", ".2em")
+      .attr("transform", function(d) {
+        var multiline = (d.Name || "").split(" ").length > 1,
+            angle = x(d.x + d.dx / 2) * 180 / Math.PI - 90,
+            rotate = angle + (multiline ? -.5 : 0);
+        return "rotate(" + rotate + ")translate(" + (y(d.y) + padding) + ")rotate(" + (angle > 90 ? -180 : 0) + ")";
+      })
+      .on("click", click);
+
+textEnter.append("tspan")
+      .attr("x", 0)
+      .text(function(d) { return d.depth ? d.Name.split(" ")[0] : ""; });
+  textEnter.append("tspan")
+      .attr("x", 0)
+      .attr("dy", "1em")
+      .text(function(d) { return d.depth ? d.Name.split(" ")[1] || "" : ""; });
+
+  function click(d) {
+    path.transition()
+      .duration(duration)
+      .attrTween("d", arcTween(d));
+
+    // Somewhat of a hack as we rely on arcTween updating the scales.
+    text.style("visibility", function(e) {
+          return isParentOf(d, e) ? null : d3.select(this).style("visibility");
+        })
+      .transition()
+        .duration(duration)
+        .attrTween("text-anchor", function(d) {
+          return function() {
+            return x(d.x + d.dx / 2) > Math.PI ? "end" : "start";
+          };
+        })
+        .attrTween("transform", function(d) {
+          var multiline = (d.Name || "").split(" ").length > 1;
+          return function() {
+            var angle = x(d.x + d.dx / 2) * 180 / Math.PI - 90,
+                rotate = angle + (multiline ? -.5 : 0);
+            return "rotate(" + rotate + ")translate(" + (y(d.y) + padding) + ")rotate(" + (angle > 90 ? -180 : 0) + ")";
+          };
+        })
+        .style("fill-opacity", function(e) { return isParentOf(d, e) ? 1 : 1e-6; })
+        .each("end", function(e) {
+          d3.select(this).style("visibility", isParentOf(d, e) ? null : "hidden");
+        });      
+  }
+};
+
+
+function isParentOf(p, c) {
+  if (p === c) return true;
+  if (p.children) {
+    return p.children.some(function(d) {
+      return isParentOf(d, c);
+    });
+  }
+  return false;
+}
+
+d3.select(self.frameElement).style("height", height + "px");
+
+// Interpolate the scales!
+function arcTween(d) {
+  var xd = d3.interpolate(x.domain(), [d.x, d.x + d.dx]),
+      yd = d3.interpolate(y.domain(), [d.y, 1]),
+      yr = d3.interpolate(y.range(), [d.y ? 20 : 0, radius]);
+  return function(d, i) {
+    return i
+        ? function(t) { return arc(d); }
+        : function(t) { x.domain(xd(t)); y.domain(yd(t)).range(yr(t)); return arc(d); };
+  };
+}
+
+
+result = sforce.connection.query("Select Name, Id, ParentId, AnnualRevenue from Account");
+data = result.getArray("records");
+
+log(data.length);
+
+
+var treeData =  
+    {Name:"Accounts",
+    children: []}
+    ;
+
+for (i = 0; i < data.length; i++) {
+    var parent = data[i];
+    parent.size = parent.AnnualRevenue;
+    parent.children = [];
+    for (j = 0; j < data.length; j++) {
+        var child = data[j];
+        if (child.ParentId === parent.Id) {
+            parent.children.push(child);
+        }
+    }
+    if (parent.ParentId === "" || parent.ParentId == null) {
+        treeData.children.push(parent);
+    }
+}
+
+log("treeData");
+//$("#output").html("<pre>" + JSON.stringify(treeData,null," ") + "</pre>");
+log( JSON.stringify(treeData,null," "));
+
+flare(treeData);
+
+
+
+</script>
+</apex:page>
