@@ -10,7 +10,7 @@
   display: block;
   margin: auto;
   margin-top: 60px;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 rect {
@@ -31,7 +31,7 @@ text {
 
 <body>
 
-     <div id="d3output">hello d3</div>
+     <div id="d3output"></div>
 
 </body>
 
@@ -126,7 +126,7 @@ function color(d) {
   }
 }
 
-result = sforce.connection.query("Select Country__c, Region__c, sum(Amount)  TotalAmount from Opportunity group by Country__c,Region__c");
+result = sforce.connection.query("Select Country__c, Region__c, sum(Amount)  TotalAmount from Opportunity group by Country__c, Region__c");
 data = result.getArray("records");
 
 
@@ -142,10 +142,8 @@ for (i = 0; i < data.length; i++) {
 
     child.size = child.TotalAmount;
     
-    var newCountry = {Name: child.Country__c, size: Number(child.size), children: [], totalAmount: Number(child.TotalAmount)};
     var newRegion = {Name: child.Region__c, size: Number(child.size), children: [], totalAmount: Number(child.TotalAmount)};
     
-    newCountry.children.push(newRegion);
 
     //find existing country
     var countryExists;
@@ -161,6 +159,8 @@ for (i = 0; i < data.length; i++) {
         countryExists.size = countryExists.size + Number(child.size);
         countryExists.totalAmount = countryExists.size;
     } else {
+	  var newCountry = {Name: child.Country__c, size: newRegion.size, children: [], totalAmount: newRegion.totalAmount};
+	  newCountry.children.push(newRegion);
       treeData.children.push(newCountry);
     }
 }
