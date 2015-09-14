@@ -33,7 +33,7 @@ path {
 
 <body>
 
-     <div id="d3output">hello d3</div>
+     <div id="d3output"></div>
 
 </body>
 
@@ -44,7 +44,7 @@ path {
 <script>
 
 
-// Build image window
+// Based on d3.js Sunburst http://bl.ocks.org/mbostock/4063423
 
 var width = 960,
     height = 700,
@@ -90,8 +90,6 @@ var arc = d3.svg.arc()
     .innerRadius(function(d) { return Math.max(0, y(d.y)); })
     .outerRadius(function(d) { return Math.max(0, y(d.y + d.dy)); });
 
-//d3.json("/mbostock/raw/4063550/flare.json", function(error, root) {
-// if (error) throw error;
 
 function flare(root) {
   var nodes = partition.nodes(root);

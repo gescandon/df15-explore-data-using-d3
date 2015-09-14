@@ -36,7 +36,7 @@
 
 <body>
 
-     <div id="d3output"></div>
+     <div id="d3output">hello d3</div>
 
 </body>
 
@@ -106,7 +106,7 @@ function update(source) {
       .attr("y", -barHeight / 2)
       .attr("height", barHeight)
       .attr("width", barWidth)
-      .style("fill", color)
+      .style("fill", "#fff")
       .style("stroke-width", function(d) {
         if (d.name === "SOQL_EXECUTE_BEGIN") {
           return "1.5px";
@@ -120,8 +120,8 @@ function update(source) {
       .on("click", click);
 
     nodeEnter.append("circle")
-          .attr("r", 3)
-          .style("fill", "#fff");
+          .attr("r", 4)
+          .style("fill", color);
 
 
   nodeEnter.append("text")
@@ -142,7 +142,7 @@ function update(source) {
       .attr("transform", function(d) { return "translate(" + d.y + "," + d.x + ")"; })
       .style("opacity", 1)
     .select("rect")
-      .style("fill", color);
+      .style("fill", "#fff");
 
   // Transition exiting nodes to the parent's new position.
   node.exit().transition()

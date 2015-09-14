@@ -1,0 +1,179 @@
+<apex:page sidebar="false" showHeader="true">
+<script type="text/javascript">
+    var __sfdcSessionId = '{!GETSESSIONID()}';
+    function log(msg) {
+      console.log(msg);
+    }    
+</script>
+<style>
+.chart {
+  display: block;
+  margin: auto;
+  margin-top: 60px;
+  font-size: 11px;
+}
+
+rect {
+  stroke: #eee;
+  fill: #aaa;
+  fill-opacity: .8;
+}
+
+rect.parent {
+  cursor: pointer;
+}
+
+text {
+  pointer-events: none;
+}
+
+</style>
+
+<body>
+
+     <div id="d3output">hello d3</div>
+
+</body>
+
+<script src="../../soap/ajax/34.0/connection.js" type="text/javascript"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<apex:includeScript value="{!$Resource.d3}"/>
+
+<script>
+
+// Build image window
+
+var w = 1120,
+    h = 600,
+    x = d3.scale.linear().range([0, w]),
+    y = d3.scale.linear().range([0, h]);
+
+var vis = d3.select("#d3output").append("div")
+    .attr("class", "chart")
+    .style("width", w + "px")
+    .style("height", h + "px")
+  .append("svg:svg")
+    .attr("width", w)
+    .attr("height", h);
+
+var partition = d3.layout.partition()
+    .value(function(d) { return d.size; });
+
+function renderPartition(root) {
+  log("partition");
+
+  var g = vis.selectAll("g")
+      .data(partition.nodes(root))
+    .enter().append("svg:g")
+      .attr("transform", function(d) { return "translate(" + x(d.y) + "," + y(d.x) + ")"; })
+      .on("click", click);
+
+  var kx = w / root.dx,
+      ky = h / 1;
+
+  g.append("svg:rect")
+      .attr("width", root.dy * kx)
+      .attr("height", function(d) { return d.dx * ky; })
+      .attr("class", function(d) { return d.children ? "parent" : "child"; })
+      .style("fill", color);
+
+  g.append("svg:text")
+      .attr("transform", transform)
+      .attr("dy", ".35em")
+      .style("opacity", function(d) { return d.dx * ky > 12 ? 1 : 0; })
+      .text(function(d) { 
+      	if (d.depth > 0) {
+      		return d.Name + " ($" + d.totalAmount + ")"; 
+      	} else {
+      		return d.Name;
+      	}
+      });
+      	
+
+  d3.select(window)
+      .on("click", function() { click(root); })
+
+  function click(d) {
+    if (!d.children) return;
+
+    kx = (d.y ? w - 40 : w) / (1 - d.y);
+    ky = h / d.dx;
+    x.domain([d.y, 1]).range([d.y ? 40 : 0, w]);
+    y.domain([d.x, d.x + d.dx]);
+
+    var t = g.transition()
+        .duration(d3.event.altKey ? 7500 : 750)
+        .attr("transform", function(d) { return "translate(" + x(d.y) + "," + y(d.x) + ")"; });
+
+    t.select("rect")
+        .attr("width", d.dy * kx)
+        .attr("height", function(d) { return d.dx * ky; });
+
+    t.select("text")
+        .attr("transform", transform)
+        .style("opacity", function(d) { return d.dx * ky > 12 ? 1 : 0; });
+
+    d3.event.stopPropagation();
+  }
+
+  function transform(d) {
+    return "translate(8," + d.dx * ky / 2 + ")";
+  }
+};
+
+function color(d) {
+  if (d.totalAmount == null) {
+    return '#CEF6CE';
+  } else if (d.totalAmount > 1.0e6) {
+    return '#A5DF00';  	
+  } else if (d.totalAmount > 1.0e4) {
+    return '#A9F5A9';  	
+  } else  {
+    return '#CEF6CE';  	
+  }
+}
+
+result = sforce.connection.query("Select Country__c, Region__c, sum(Amount)  TotalAmount from Opportunity group by Country__c,Region__c");
+data = result.getArray("records");
+
+
+var treeData =  
+    {Name:"Galaxy Opps",
+    children: []}
+    ;
+
+for (i = 0; i < data.length; i++) {
+    var child = data[i];
+
+    var newRegion = {Name: child.Region__c, size: 1, children: [], totalAmount: Number(child.TotalAmount)};
+
+    //find existing country
+    var countryExists;
+    for (j = 0; j < treeData.children.length; j++) {
+        if (treeData.children[j].Name === child.Country__c) {
+          countryExists = treeData.children[j];
+        }
+    }
+
+    if (countryExists) {
+      // find existing Region
+        countryExists.children.push(newRegion);
+        countryExists.size = 1 + countryExists.size;
+        countryExists.totalAmount = 0 + countryExists.totalAmount + newRegion.totalAmount;
+
+    } else {
+	    var newCountry = {Name: child.Country__c, size: 1, children: [], totalAmount: Number(child.TotalAmount)};
+	    newCountry.children.push(newRegion);
+    	treeData.children.push(newCountry);
+    }
+}
+
+
+//$("#d3output").html("<pre>" + JSON.stringify(treeData,null," ") + "</pre>");
+log(treeData);
+renderPartition(treeData);
+
+
+
+</script>
+</apex:page>

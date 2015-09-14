@@ -1,4 +1,4 @@
-<apex:page sidebar="false" showHeader="false">
+<apex:page sidebar="false" showHeader="true">
 <script type="text/javascript">
     var __sfdcSessionId = '{!GETSESSIONID()}';
     function log(msg) {
@@ -21,7 +21,6 @@ rect {
 
 rect.parent {
   cursor: pointer;
-  fill: steelblue;
 }
 
 text {
@@ -75,13 +74,14 @@ function renderPartition(root) {
   g.append("svg:rect")
       .attr("width", root.dy * kx)
       .attr("height", function(d) { return d.dx * ky; })
-      .attr("class", function(d) { return d.children ? "parent" : "child"; });
+      .attr("class", function(d) { return d.children ? "parent" : "child"; })
+      .style("fill", color);
 
   g.append("svg:text")
       .attr("transform", transform)
       .attr("dy", ".35em")
       .style("opacity", function(d) { return d.dx * ky > 12 ? 1 : 0; })
-      .text(function(d) { return d.Name; })
+      .text(function(d) { return d.Name + " ($" + d.size + ")"; })
 
   d3.select(window)
       .on("click", function() { click(root); })
@@ -114,7 +114,19 @@ function renderPartition(root) {
   }
 };
 
-result = sforce.connection.query("Select Name, Id, Country__c, Region__c, Amount from Opportunity");
+function color(d) {
+  if (d.totalAmount == null) {
+    return '#CEF6CE';
+  } else if (d.totalAmount > 1.0e6) {
+    return '#A5DF00';  	
+  } else if (d.totalAmount > 1.0e4) {
+    return '#A9F5A9';  	
+  } else  {
+    return '#CEF6CE';  	
+  }
+}
+
+result = sforce.connection.query("Select Country__c, Region__c, sum(Amount)  TotalAmount from Opportunity group by Country__c,Region__c");
 data = result.getArray("records");
 
 
@@ -125,11 +137,14 @@ var treeData =
 
 for (i = 0; i < data.length; i++) {
     var child = data[i];
-    child.size = child.Amount;
+    log("name: " + child.Country__c);
+    log("amount: " + child.TotalAmount + "\n");
+
+    child.size = child.TotalAmount;
     
-    var newCountry = {Name: child.Country__c, size: Number(child.size), children: []};
-    var newRegion = {Name: child.Region__c, size: Number(child.size), children: []};
-    newRegion.children.push(child);
+    var newCountry = {Name: child.Country__c, size: Number(child.size), children: [], totalAmount: Number(child.TotalAmount)};
+    var newRegion = {Name: child.Region__c, size: Number(child.size), children: [], totalAmount: Number(child.TotalAmount)};
+    
     newCountry.children.push(newRegion);
 
     //find existing country
@@ -142,21 +157,9 @@ for (i = 0; i < data.length; i++) {
 
     if (countryExists) {
       // find existing Region
-      var regionExists;
-      for (k = 0; k < countryExists.children.length; k++) {
-          if (countryExists.children[k].Name === child.Region__c) {
-            regionExists = countryExists.children[k];
-          }
-      }
-
-      if (regionExists) {
-        regionExists.children.push(child);
-        regionExists.size = Number(regionExists.size) + Number(child.size);
-        countryExists.size = countryExists.size + Number(child.size);
-      } else {
         countryExists.children.push(newRegion);
         countryExists.size = countryExists.size + Number(child.size);
-      }
+        countryExists.totalAmount = countryExists.size;
     } else {
       treeData.children.push(newCountry);
     }
