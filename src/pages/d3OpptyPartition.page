@@ -137,9 +137,6 @@ var treeData =
 
 for (i = 0; i < data.length; i++) {
     var child = data[i];
-    log("name: " + child.Country__c);
-    log("amount: " + child.TotalAmount + "\n");
-
     child.size = child.TotalAmount;
     
     var newRegion = {Name: child.Region__c, size: Number(child.size), children: [], totalAmount: Number(child.TotalAmount)};
@@ -167,7 +164,7 @@ for (i = 0; i < data.length; i++) {
 
 
 //$("#d3output").html("<pre>" + JSON.stringify(treeData,null," ") + "</pre>");
-log(treeData);
+log(JSON.stringify(treeData,null," "));
 renderPartition(treeData);
 
 
