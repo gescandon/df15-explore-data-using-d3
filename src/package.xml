@@ -8,6 +8,8 @@
 		<members>d3OpptyPartion</members>
 		<members>d3OpptyPartition</members>
 		<members>d3OpptyPartition2</members>
+		<members>d3TerritoryPartition</members>
+		<members>d3TerritoryPartitionFull</members>
 		<name>ApexPage</name>
 	</types>
 	<version>28.0</version>

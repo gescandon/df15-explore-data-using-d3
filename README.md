@@ -33,5 +33,6 @@ The following pages should work with a fresh SFDC Dev org (except where noted).
 
 ## d3TerritoryPartition
 * Based on Partition Table: http://mbostock.github.io/d3/talk/20111018/partition.html
-* More efficient conversion of hierarchical records into d3 formatted JSON. (Handle large data sets better!)
+* More efficient conversion of hierarchical records into d3 formatted JSON.
+* Handle large data sets better! >10k records 
 * Limits depth of visualization.

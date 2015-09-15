@@ -1,0 +1,280 @@
+<apex:page showHeader="true" sidebar="false">
+<script type="text/javascript">
+    var __sfdcSessionId = '{!GETSESSIONID()}';
+
+    function log(msg) {
+      console.log(msg);
+    }   
+  function map(fn, a)
+    {
+        for (i = 0; i < a.length; i++)
+        {
+            a[i] = fn(a[i]);
+        }
+    }
+    
+  function reduce(fn, a, init)
+    {
+        var s = init;
+        
+        for (i = 0; i < a.length; i++)
+            s = fn( s, a[i] );
+        return s;
+    }
+
+</script>
+<style>
+.chart {
+  display: block;
+  margin: auto;
+  margin-top: 60px;
+  font-size: 14px;
+}
+
+rect {
+  stroke: #eee;
+  fill: #aaa;
+  fill-opacity: .8;
+}
+
+rect.parent {
+  cursor: pointer;
+}
+
+text {
+  pointer-events: none;
+}
+
+</style>
+
+<body>
+
+     <div id="d3output"></div>
+
+</body>
+
+<script src="../../soap/ajax/34.0/connection.js" type="text/javascript"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<apex:includeScript value="{!$Resource.d3}"/>
+<apex:includeScript value="{!$Resource.territoryDataJs}"/>
+<script>
+
+// Build image window
+
+var w = 1120,
+    h = 800,
+    x = d3.scale.linear().range([0, w]),
+    y = d3.scale.linear().range([0, h]);
+
+
+var vis = d3.select("#d3output").append("div")
+    .attr("class", "chart")
+    .style("width", w + "px")
+    .style("height", h + "px")
+  .append("svg:svg")
+    .attr("width", w)
+    .attr("height", h);
+
+var partition = d3.layout.partition()
+    .value(function(d) { return d.size; });
+
+function renderPartition(root) {
+  log("partition");
+  partition.nodes({}); 
+  d3.selectAll("svg > *").remove();
+  var g = vis.selectAll("g")
+      .data(partition.nodes(root))
+    .enter().append("svg:g")
+      .attr("transform", function(d) { return "translate(" + x(d.y) + "," + y(d.x) + ")"; })
+      .on("click", drilldown);
+
+  var kx = w / root.dx,
+      ky = h / 1;
+
+  g.append("svg:rect")
+      .attr("width", root.dy * kx)
+      .attr("height", function(d) { return d.dx * ky; })
+      .attr("class", function(d) { return d.children ? "parent" : "child"; })
+      .style("fill", color);
+
+  g.append("svg:text")
+      .attr("transform", transform)
+      .attr("dy", ".35em")
+      .style("opacity", function(d) { return d.dx * ky > 12 ? 1 : 0; })
+      .text(function(d) { return d.Name ; })
+  g.append("svg:title")
+   .text(function(d) { return d.id + ": " + d.childrenIds.length + " children"; });
+
+
+  d3.select(window)
+      .on("click", function() { click(root); })
+
+  function click(d) {
+    if (!d.children) return;
+
+    kx = (d.y ? w - 40 : w) / (1 - d.y);
+    ky = h / d.dx;
+    x.domain([d.y, 1]).range([d.y ? 40 : 0, w]);
+    y.domain([d.x, d.x + d.dx]);
+
+    var t = g.transition()
+        .duration(d3.event.altKey ? 7500 : 750)
+        .attr("transform", function(d) { return "translate(" + x(d.y) + "," + y(d.x) + ")"; });
+
+    t.select("rect")
+        .attr("width", d.dy * kx)
+        .attr("height", function(d) { return d.dx * ky; });
+
+    t.select("text")
+        .attr("transform", transform)
+        .style("opacity", function(d) { return d.dx * ky > 12 ? 1 : 0; });
+
+    d3.event.stopPropagation();
+
+  }
+
+  function transform(d) {
+    return "translate(8," + d.dx * ky / 2 + ")";
+  }
+};
+
+//var colors = colorbrewer.GnBu["3"];
+var colors = ["#e0f3db","#a8ddb5","#43a2ca"];
+function color(d) {
+  if (d.childrenIds.length == null) {
+    return "#fff";
+  } else if (d.childrenIds.length > 10) {
+    return colors[2];  	
+  } else if (d.childrenIds.length > 5) {
+    return colors[1];  	
+  } else  {
+    return colors[0];  	
+  }
+}
+
+data = records;
+var treeData =  {
+	Name:"Galaxy Opps",
+	id: "root",
+    children: []}
+    ;
+
+
+
+var parentKey = 'PARENT__C'; // must equal the parent field name of the input data
+
+
+  function objBuilder(x) {
+    var newx = {
+      id : x.Id || x.ID,
+      Name : x.NAME + ":" + x.EXT,
+      parentId : x[parentKey],
+      size : 10,
+      childrenIds : [],
+      children : [],
+    };
+    return newx;
+  }
+      
+  
+  
+  // define root of hierarchy
+  var root = {
+        
+        Name : 'Galactic',
+        children : [],
+        childrenIds : [],
+        addChild: function(objx) {
+          var ap = objx.parentId;
+          // NO AP MEANS IT IS A PARENT
+          if (!ap) {
+            this.childrenIds.push(objx.id);
+          } 
+        }
+      };
+  
+      
+  // build hash
+  var childParentHash = {};
+  childParentHash = reduce(function(s, x) {
+    s[x.ID] = objBuilder(x);
+    return s;
+  }, records, childParentHash);
+  
+
+  // set the children
+  childParentHash = reduce(function(s, x) {
+
+    var ap = s[x.ID].parentId;
+    if (ap && ap.length > 0 && s[ap]) {
+      s[ap].childrenIds.push(x.ID);
+    }
+    return s;
+  }, records, childParentHash);
+
+  // s = init.
+  // load the JIT JSON
+  var rootJson = reduce(function(s, x){
+    var child = childParentHash[x.ID];
+    s.addChild(child);
+    return s;
+  }, records, root);
+
+  // limit to maxLevels
+  var LEVEL_LIMIT = 4;
+  function addLevels(rootNode, level) {
+  	var result = {};
+  	// clone the root
+    for (var key in rootNode) {
+      if (rootNode.hasOwnProperty(key)) {
+        	result[key] = rootNode[key];
+      }      
+    }
+    result.children = [];
+    if (level < LEVEL_LIMIT && rootNode.childrenIds.length > 0) {
+    	for(var i = 0; i < rootNode.childrenIds.length; i++) {
+    		var childId = rootNode.childrenIds[i];
+    		result.children.push(addLevels(childParentHash[childId], level + 1));
+    		result.size = 1 + result.size;
+    	}    	
+    }
+    return result;
+
+  }
+
+ 
+displayJson = addLevels(rootJson, 0);
+  
+
+renderPartition(displayJson);
+
+
+var currentNodeId = "root";
+function drilldown(node) {
+	log(node);
+	log(currentNodeId);
+	var newJson;
+	if ("root" === node.id) {
+		newJson = rootJson;
+	} else if (currentNodeId === node.id) {
+		// go up one level
+		log("parent" + node.parentId);
+		if ("" === node.parentId) {
+			newJson = addLevels(rootJson, 0);
+			currentNodeId = "root";
+		} else {
+		    newJson = addLevels(childParentHash[node.parentId],0);
+		    currentNodeId = node.parentId;
+		    log(newJson);		
+
+		}
+	} else {
+	    newJson = addLevels(childParentHash[node.id],0);
+	    currentNodeId = node.id;
+	}
+
+	renderPartition(newJson);
+}
+
+</script>
+</apex:page>
