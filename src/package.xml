@@ -9,6 +9,7 @@
 		<members>d3OpptyPartition</members>
 		<members>d3OpptyPartition2</members>
 		<members>d3TerritoryPartition</members>
+		<members>d3TerritoryPartition2</members>
 		<members>d3TerritoryPartitionFull</members>
 		<name>ApexPage</name>
 	</types>

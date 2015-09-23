@@ -152,8 +152,7 @@ function color(d) {
   }
 }
 
-data = records; // grab data from external script
-
+data = records;
 var treeData =  {
 	Name:"Galaxy Opps",
 	id: "root",
@@ -222,7 +221,7 @@ var parentKey = 'PARENT__C'; // must equal the parent field name of the input da
   }, records, root);
 
   // limit to maxLevels
-  var LEVEL_LIMIT = 20;
+  var LEVEL_LIMIT = 2;
   function addLevels(rootNode, level) {
   	var result = {};
   	// clone the root

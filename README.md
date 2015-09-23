@@ -1,6 +1,9 @@
 # df15-explore-d3
 Explore Data Distributions using D3.js - DF15 Devzone
 
+# slideshare
+http://www.slideshare.net/armadillovoom/explore-data-distributions-using-d3js
+
 #VF Page Descriptions
 
 The following pages should work with a fresh SFDC Dev org (except where noted).
@@ -31,8 +34,10 @@ The following pages should work with a fresh SFDC Dev org (except where noted).
 * Based on Partition Table: http://mbostock.github.io/d3/talk/20111018/partition.html
 * Element size based on number of children.
 
+
 ## d3TerritoryPartition
 * Based on Partition Table: http://mbostock.github.io/d3/talk/20111018/partition.html
 * More efficient conversion of hierarchical records into d3 formatted JSON.
 * Handle large data sets better! >10k records 
 * Limits depth of visualization.
+* Uses an additional js file which provide mock csv data.
